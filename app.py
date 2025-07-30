@@ -1,13 +1,14 @@
-from flask import Flask, request, redirect, make_response
+from flask import Flask, request, redirect, make_response, Response
 from db_manager import (
     create_tables, add_student, add_grade, connect_db,
     subject_wise_topper, subject_average
 )
+import csv
 
 app = Flask(__name__)
 create_tables()
 
-# 🔄 Force browser to load fresh content every time
+# 🔄 Prevent caching
 @app.after_request
 def add_header(response):
     response.headers['Cache-Control'] = 'no-store'
@@ -23,6 +24,7 @@ def home():
         "<p><a href='/view-student'>View Student Details</a></p>"
         "<p><a href='/subject-topper'>Subject-wise Topper 🏆</a></p>"
         "<p><a href='/subject-average'>Subject-wise Class Average 📊</a></p>"
+        "<p><a href='/export-grades'>Export Grades to CSV 📤</a></p>"
     )
 
 @app.route('/add-student', methods=['GET', 'POST'])
@@ -146,6 +148,26 @@ def subject_avg():
         </form>
         <p><a href="/">Back</a></p>
     '''
+
+@app.route('/export-grades')
+def export_grades():
+    conn = connect_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT students.roll_number, students.name, grades.subject, grades.grade
+        FROM grades
+        JOIN students ON students.roll_number = grades.roll_number
+    """)
+    data = cur.fetchall()
+    conn.close()
+
+    def generate():
+        yield 'Roll Number,Name,Subject,Grade\n'
+        for row in data:
+            yield ','.join(map(str, row)) + '\n'
+
+    return Response(generate(), mimetype='text/csv',
+                    headers={"Content-Disposition": "attachment;filename=student_grades.csv"})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5500)
