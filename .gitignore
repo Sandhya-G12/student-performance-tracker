@@ -1,10 +1,6 @@
-.p2/
-.vscode/
-*.log
-*.class
-*.jar
-*.exe
-*.dll
-node_modules/
-build/
-dist/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+students.db
+.env
