@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, make_response
 from db_manager import (
     create_tables, add_student, add_grade, connect_db,
     subject_wise_topper, subject_average
@@ -6,6 +6,12 @@ from db_manager import (
 
 app = Flask(__name__)
 create_tables()
+
+# 🔄 Force browser to load fresh content every time
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 @app.route('/')
 def home():
@@ -19,7 +25,6 @@ def home():
         "<p><a href='/subject-average'>Subject-wise Class Average 📊</a></p>"
     )
 
-# ---------------- Add Student ----------------
 @app.route('/add-student', methods=['GET', 'POST'])
 def add_student_form():
     if request.method == 'POST':
@@ -37,7 +42,6 @@ def add_student_form():
         <p><a href="/">Back</a></p>
     '''
 
-# ---------------- Add Grade ----------------
 @app.route('/add-grade', methods=['GET', 'POST'])
 def add_grade_form():
     if request.method == 'POST':
@@ -57,7 +61,6 @@ def add_grade_form():
         <p><a href="/">Back</a></p>
     '''
 
-# ---------------- View All Students ----------------
 @app.route('/students')
 def list_students():
     conn = connect_db()
@@ -72,7 +75,6 @@ def list_students():
     html += "</ul><p><a href='/'>Back to Home</a></p>"
     return html
 
-# ---------------- View Student Details ----------------
 @app.route('/view-student', methods=['GET', 'POST'])
 def view_student():
     if request.method == 'POST':
@@ -107,7 +109,6 @@ def view_student():
         <p><a href="/">Back</a></p>
     '''
 
-# ---------------- Subject-wise Topper ----------------
 @app.route('/subject-topper', methods=['GET', 'POST'])
 def subject_topper():
     if request.method == 'POST':
@@ -127,7 +128,6 @@ def subject_topper():
         <p><a href="/">Back</a></p>
     '''
 
-# ---------------- Subject-wise Average ----------------
 @app.route('/subject-average', methods=['GET', 'POST'])
 def subject_avg():
     if request.method == 'POST':
