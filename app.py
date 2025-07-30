@@ -1,0 +1,151 @@
+from flask import Flask, request, redirect
+from db_manager import (
+    create_tables, add_student, add_grade, connect_db,
+    subject_wise_topper, subject_average
+)
+
+app = Flask(__name__)
+create_tables()
+
+@app.route('/')
+def home():
+    return (
+        "<h1>🎓 Student Performance Tracker</h1>"
+        "<p><a href='/add-student'>Add Student</a></p>"
+        "<p><a href='/add-grade'>Add Grade</a></p>"
+        "<p><a href='/students'>View All Students</a></p>"
+        "<p><a href='/view-student'>View Student Details</a></p>"
+        "<p><a href='/subject-topper'>Subject-wise Topper 🏆</a></p>"
+        "<p><a href='/subject-average'>Subject-wise Class Average 📊</a></p>"
+    )
+
+# ---------------- Add Student ----------------
+@app.route('/add-student', methods=['GET', 'POST'])
+def add_student_form():
+    if request.method == 'POST':
+        name = request.form['name']
+        roll = request.form['roll']
+        add_student(name, roll)
+        return redirect('/')
+    return '''
+        <h2>Add Student</h2>
+        <form method="post">
+            Name: <input type="text" name="name"><br>
+            Roll No: <input type="text" name="roll"><br>
+            <button type="submit">Add Student</button>
+        </form>
+        <p><a href="/">Back</a></p>
+    '''
+
+# ---------------- Add Grade ----------------
+@app.route('/add-grade', methods=['GET', 'POST'])
+def add_grade_form():
+    if request.method == 'POST':
+        roll = request.form['roll']
+        subject = request.form['subject']
+        marks = float(request.form['marks'])
+        add_grade(roll, subject, marks)
+        return redirect('/')
+    return '''
+        <h2>Add Grade</h2>
+        <form method="post">
+            Roll No: <input type="text" name="roll"><br>
+            Subject: <input type="text" name="subject"><br>
+            Marks: <input type="number" step="any" name="marks"><br>
+            <button type="submit">Submit Grade</button>
+        </form>
+        <p><a href="/">Back</a></p>
+    '''
+
+# ---------------- View All Students ----------------
+@app.route('/students')
+def list_students():
+    conn = connect_db()
+    cur = conn.cursor()
+    cur.execute("SELECT roll_number, name FROM students")
+    rows = cur.fetchall()
+    conn.close()
+
+    html = "<h2>👥 All Students</h2><ul>"
+    for roll, name in rows:
+        html += f"<li>{roll} - {name}</li>"
+    html += "</ul><p><a href='/'>Back to Home</a></p>"
+    return html
+
+# ---------------- View Student Details ----------------
+@app.route('/view-student', methods=['GET', 'POST'])
+def view_student():
+    if request.method == 'POST':
+        roll = request.form['roll']
+        conn = connect_db()
+        cur = conn.cursor()
+
+        cur.execute("SELECT name FROM students WHERE roll_number = ?", (roll,))
+        student = cur.fetchone()
+
+        if not student:
+            return "<h2>❌ Student not found</h2><p><a href='/view-student'>Try again</a></p>"
+
+        name = student[0]
+        cur.execute("SELECT subject, grade FROM grades WHERE roll_number = ?", (roll,))
+        grades = cur.fetchall()
+        conn.close()
+
+        html = f"<h2>📄 Report for {name} (Roll {roll})</h2><ul>"
+        for subject, grade in grades:
+            html += f"<li>{subject}: {grade}</li>"
+        html += "</ul><p><a href='/'>Back</a></p>"
+
+        return html
+
+    return '''
+        <h2>View Student Details</h2>
+        <form method="post">
+            Roll No: <input type="text" name="roll"><br>
+            <button type="submit">Search</button>
+        </form>
+        <p><a href="/">Back</a></p>
+    '''
+
+# ---------------- Subject-wise Topper ----------------
+@app.route('/subject-topper', methods=['GET', 'POST'])
+def subject_topper():
+    if request.method == 'POST':
+        subject = request.form['subject']
+        name, grade = subject_wise_topper(subject)
+        if name:
+            return f"<h2>🏆 Topper in {subject}: {name} ({grade} marks)</h2><p><a href='/'>Back</a></p>"
+        else:
+            return f"<h2>❌ No grades found for subject '{subject}'</h2><p><a href='/'>Back</a></p>"
+
+    return '''
+        <h2>Subject-wise Topper</h2>
+        <form method="post">
+            Subject: <input type="text" name="subject"><br>
+            <button type="submit">Find Topper</button>
+        </form>
+        <p><a href="/">Back</a></p>
+    '''
+
+# ---------------- Subject-wise Average ----------------
+@app.route('/subject-average', methods=['GET', 'POST'])
+def subject_avg():
+    if request.method == 'POST':
+        subject = request.form['subject']
+        avg = subject_average(subject)
+        if avg is not None:
+            return f"<h2>📊 Class Average in {subject}: {avg:.2f}</h2><p><a href='/'>Back</a></p>"
+        else:
+            return f"<h2>❌ No grades found for subject '{subject}'</h2><p><a href='/'>Back</a></p>"
+
+    return '''
+        <h2>Subject-wise Class Average</h2>
+        <form method="post">
+            Subject: <input type="text" name="subject"><br>
+            <button type="submit">Calculate</button>
+        </form>
+        <p><a href="/">Back</a></p>
+    '''
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5500)
